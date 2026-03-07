@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Chirp;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class ChirperController extends Controller
 {
@@ -11,8 +13,9 @@ class ChirperController extends Controller
     {
         $chirps = Chirp::with('user')
             ->latest()
-            ->take(50)  // Limit to 50 most recent chirps
-            ->get();;
+            ->limit(50)
+            ->get();
+
         return view('home', ['chirps' => $chirps]);
     }
 
@@ -20,33 +23,29 @@ class ChirperController extends Controller
     {
         $validated = $request->validate([
             'message' => 'required|string|max:255',
-        ], [
-            'message.required' => 'Please write something to chirp!',
-            'message.max' => 'Chirps must be 255 characters or less.',
         ]);
 
-        \App\Models\Chirp::create([
-            'message' => $validated['message'],
-            'user_id' => null,
-        ]);
+        Auth::user()->chirps()->create($validated);
+
 
         return redirect('/')->with('success', 'Your chirp has been posted!');
     }
 
     public function edit(Chirp $chirp)
     {
-        // We'll add authorization in lesson 11
+        $this->authorize('update', $chirp);
+
         return view('chirps.edit', compact('chirp'));
     }
 
     public function update(Request $request, Chirp $chirp)
     {
-        // Validate
+        $this->authorize('update', $chirp);
+
         $validated = $request->validate([
             'message' => 'required|string|max:255',
         ]);
 
-        // Update
         $chirp->update($validated);
 
         return redirect('/')->with('success', 'Chirp updated!');
@@ -54,6 +53,8 @@ class ChirperController extends Controller
 
     public function destroy(Chirp $chirp)
     {
+        $this->authorize('delete', $chirp);
+
         $chirp->delete();
 
         return redirect('/')->with('success', 'Chirp deleted!');
